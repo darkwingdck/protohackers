@@ -4,6 +4,7 @@ import (
     "fmt"
     "os"
     "protohackers/smoketest"
+    "protohackers/primetime"
 )
 
 func main()  {
@@ -15,6 +16,8 @@ func main()  {
     switch taskName {
     case "1":
 	smoketest.Run()
+    case "2":
+	primetime.Run()
     default:
 	fmt.Println("Task not found")
     }
