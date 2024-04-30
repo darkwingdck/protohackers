@@ -1,19 +1,24 @@
 package primetime
 
 import (
-	"bufio"
-	"encoding/json"
-	"fmt"
-	"io"
-	"math"
-	"net"
-	"os"
-	"strings"
+    "bufio"
+    "encoding/json"
+    "fmt"
+    "io"
+    "math"
+    "net"
+    "os"
+    "strings"
 )
 
 type Request struct {
-    Method string
-    Number float64
+    Method string  `json:"method"`
+    Number *float64 `json:"number"`
+}
+
+type Response struct {
+    Method string `json:"method"`
+    Prime  bool   `json:"prime"` 
 }
 
 func isPrime(number float64) bool {
@@ -30,37 +35,30 @@ func isPrime(number float64) bool {
     return true
 }
 
-func getResult(request Request) string {
-    if request.Method == "" {
-	return "{}\n"
-    }
-    return fmt.Sprintf("{\"method\": \"isPrime\", \"prime\": %t}\n", isPrime(request.Number))
-}
+func getResult(request *Request) ([]byte, error) {
+    defaultResult := []byte("{}\n")
 
-func serializeData(data []byte) Request {
-    var m map[string]interface{}
-    defaultRequest := Request{"", 0}
-    
-    err := json.Unmarshal(data, &m)
-
-    if err != nil {
-	return defaultRequest
+    isNumberNil := request.Number == nil
+    if isNumberNil {
+	return defaultResult, fmt.Errorf("Error: number is nil")
     }
 
-    method, ok := m["method"]
-    
-    if !ok || method != "isPrime" {
-	return defaultRequest
+    isMethodValid := request.Method == "isPrime"
+    isNumberValid := fmt.Sprintf("%T", *request.Number) == "float64"
+
+
+    if !isMethodValid || !isNumberValid {
+	return defaultResult, fmt.Errorf("Error: request not valid")
     }
 
-    number := m["number"]
-    numberType := fmt.Sprintf("%T", number)
-    
-    if numberType != "float64" {
-	return defaultRequest
+    response := Response{
+	Method: request.Method,
+	Prime: isPrime(*request.Number),
     }
 
-    return Request{method.(string), number.(float64)}
+    result, _ := json.Marshal(response)
+    result = append(result, '\n')
+    return result, nil
 }
 
 func handleConnection(connection net.Conn) {
@@ -69,27 +67,33 @@ func handleConnection(connection net.Conn) {
     reader := bufio.NewReader(connection)
 
     for {
-        line, err := reader.ReadString('\n')
-        if err != nil {
-            if err != io.EOF {
-                fmt.Println("Error reading: ", err)
-            }
-            break
-        }
-        line = strings.TrimSuffix(line, "\n")
+	line, err := reader.ReadString('\n')
+	if line == "\n" {
+	    continue
+	}
+	if err != nil {
+	    if err != io.EOF {
+		fmt.Println("Error reading: ", err)
+	    }
+	    break
+	}
+	line = strings.TrimSuffix(line, "\n")
 
-        fmt.Printf("Received %d bytes: %s\n", len(line), line)
+	fmt.Printf("Received %d bytes: %s\n", len(line), line)
 
-        request := serializeData([]byte(line))
+	request := Request{}
+	err = json.Unmarshal([]byte(line), &request)
+	if err != nil {
+	    fmt.Println("Error Unmarshal: ", err)
+	    request = Request{Method: "Error", Number: nil}
+	}
 
-        result := getResult(request)
-        
-        fmt.Println(result)
-
-        _, err = connection.Write([]byte(result))
-        if err != nil {
-            fmt.Println("Error writing: ", err)
-        }
+	result, _ := getResult(&request)
+	fmt.Println("Result: ", string(result))
+	_, err = connection.Write([]byte(result))
+	if err != nil {
+	    fmt.Println("Error writing: ", err)
+	}
     }
 }
 
