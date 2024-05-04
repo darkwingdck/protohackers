@@ -5,6 +5,7 @@ import (
     "os"
     "protohackers/smoketest"
     "protohackers/primetime"
+    "protohackers/meanstoanend"
 )
 
 func main()  {
@@ -12,12 +13,14 @@ func main()  {
 	fmt.Println("Usage: ./main [task number]")
 	return
     }
-    taskName := os.Args[1]
-    switch taskName {
-    case "1":
+    taskNumber := os.Args[1]
+    switch taskNumber{
+    case "0":
 	smoketest.Run()
-    case "2":
+    case "1":
 	primetime.Run()
+    case "2":
+	meanstoanend.Run()
     default:
 	fmt.Println("Task not found")
     }
